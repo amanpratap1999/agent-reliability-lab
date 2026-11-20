@@ -62,3 +62,10 @@ AdapterRegistry registers a factory with AdapterMetadata under a neutral adapter
 ## Contract tests
 
 The fake adapter tests cover runtime protocol conformance, all five lifecycle methods, typed task/result/event handling, explicit provenance, registry registration/lookup/duplicate handling, invalid adapter factories, configuration validation and normalized timeout/cancellation/connection/protocol errors.
+
+
+## Verification evidence
+
+GitHub Actions run #16 passed on Ubuntu and Windows: 49 tests on each runner, all three Alembic migrations, and Uvicorn liveness/database-readiness smoke tests returning HTTP 200.
+
+This verifies the contract, fake adapter and registry only. No production/provider adapter is registered or claimed as implemented in D13.
