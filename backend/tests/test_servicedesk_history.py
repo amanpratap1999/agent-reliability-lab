@@ -21,12 +21,12 @@ def test_history_contains_successful_changes_and_attempts(db_session):
     ServiceDeskTools(db_session, IDS["user_admin"]).resolve_incident(ResolveIncidentInput(incident_number="INC1001", resolution_notes="Connectivity verified after repair."))
 
     all_history = operator.get_incident_history(IncidentHistoryInput(incident_number="INC1001"))
-    assert all_history.total == 14
+    assert all_history.total == 15
     assert {event.source for event in all_history.events} == {"audit", "attempt"}
     audit_history = operator.get_incident_history(IncidentHistoryInput(incident_number="INC1001", event_type="changes"))
-    assert audit_history.total == 6
+    assert audit_history.total == 7
     assert all(event.source == "audit" for event in audit_history.events)
-    assert {event.action for event in audit_history.events} >= {"incident.updated", "incident.assigned", "incident.work_note.add", "incident.resolved"}
+    assert {event.action for event in audit_history.events} >= {"incident.created", "incident.updated", "incident.assigned", "incident.work_note.add", "incident.resolved"}
     attempts = operator.get_incident_history(IncidentHistoryInput(incident_number="INC1001", event_type="attempts"))
     assert attempts.total == 8
     assert all(event.source == "attempt" for event in attempts.events)
