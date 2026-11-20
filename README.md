@@ -11,8 +11,8 @@ An open-source, local-first reliability engineering workbench for evaluating, ob
 - FastAPI application, health and readiness endpoints
 - SQLAlchemy persistence, SQLite and Alembic migrations
 - Project create/list/get/update/archive API
-- Pydantic v2 contracts and pytest coverage
-- GitHub Actions CI and implementation documentation
+- Pydantic v2 contracts, validated configuration and secret-safe structured logging
+- Pytest coverage, live-server smoke test and GitHub Actions CI
 
 Later phases are intentionally not scaffolded yet.
 
@@ -29,6 +29,7 @@ Later phases are intentionally not scaffolded yet.
 ```text
 backend/app/{api,core,db,models,repositories,schemas,services}/
 backend/migrations/
+backend/scripts/
 backend/tests/
 scripts/
 docs/
@@ -51,7 +52,7 @@ Base path: `/api/v1`
 Interactive docs: `/docs`.
 
 ## Development and verification
-Targets Python 3.11 and native execution without Docker. See [Phase 0 notes](docs/phase-0.md). GitHub Actions is the remote execution evidence: inspect workflow runs before treating a change as verified.
+Targets Python 3.11 and native execution without Docker. Exact Windows and Unix setup, migration, run and test commands are in [Phase 0 notes](docs/phase-0.md). GitHub Actions runs tests, migrations and a live Uvicorn smoke test on Ubuntu and Windows; inspect workflow runs before treating a change as verified.
 
 ## License
 Apache-2.0. See [LICENSE](LICENSE).
