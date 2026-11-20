@@ -299,7 +299,7 @@ class ServiceDeskTools:
         now = datetime.now(timezone.utc)
         note = WorkNote(id=str(uuid4()), incident=incident, author=actor, content=payload.content, created_at=now)
         self.db.add(note)
-        self.db.add(self._audit(incident, actor, "incident.work_note.add", now, new_value=payload.content, details={"work_note_id": note.id}))
+        self.db.add(self._audit(incident, actor, "incident.work_note.add", now, new_value=note.id, details={"work_note_id": note.id, "content_length": len(payload.content)}))
         incident.updated_at = now
         self.db.commit()
         self.db.refresh(incident)
@@ -319,7 +319,7 @@ class ServiceDeskTools:
         note = WorkNote(id=str(uuid4()), incident=incident, author=actor, content=payload.resolution_notes, created_at=now)
         self.db.add(note)
         self.db.add(self._audit(incident, actor, "incident.resolved", now, "state", previous_state, "Resolved"))
-        self.db.add(self._audit(incident, actor, "incident.work_note.add", now, new_value=payload.resolution_notes, details={"work_note_id": note.id, "kind": "resolution"}))
+        self.db.add(self._audit(incident, actor, "incident.work_note.add", now, new_value=note.id, details={"work_note_id": note.id, "kind": "resolution", "content_length": len(payload.resolution_notes)}))
         self.db.commit()
         self.db.refresh(incident)
         return self._mutation_result(incident, "Incident resolved", ["state", "work_notes"])
