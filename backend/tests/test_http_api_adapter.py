@@ -13,6 +13,7 @@ from app.schemas.adapters import (
     AdapterRuntimeContext,
     AgentTask,
     EventProvenance,
+    HttpApiAdapterSettings,
 )
 
 
