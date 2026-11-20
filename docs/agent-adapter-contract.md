@@ -4,7 +4,7 @@
 
 Define one provider-neutral asynchronous contract so the execution engine can work with different agent implementations without importing provider-specific SDKs or assuming one agent framework.
 
-No concrete API, Python, MCP or browser adapter is registered in this milestone. This commit defines the contract and its fake-adapter verification only.
+D13 defines the common contract and fake-adapter verification. D14 adds a provider-neutral HTTP API adapter with Pydantic request/response validation and local mock-server integration tests; no vendor SDK or paid provider is required.
 
 ## Lifecycle
 
@@ -23,7 +23,7 @@ The later execution runner owns the configured wall-clock timeout, applies it to
 - AdapterConfig: neutral adapter type, config version, bounded timeout/action budget, non-secret settings and secret references.
 - AdapterRuntimeContext: run/environment identifiers and runtime metadata.
 - AgentTask: task/scenario identifiers, instruction and task context.
-- AgentExecutionResult: explicit completed/failed/timed_out/cancelled/inconclusive status, output envelope, normalized error and timing metadata.
+- AgentExecutionResult: explicit completed/failed/timed_out/cancelled/inconclusive status, output envelope, normalized error, timing metadata and provenance (agent_reported by default).
 - AdapterCapabilities: event collection, cooperative stop, structured tool-call and screenshot support, concurrency limit and observability notes.
 - AdapterEvent: timestamped event with an explicit provenance value.
 
@@ -51,6 +51,7 @@ AdapterErrorCode values:
 - cancelled
 - unsupported_capability
 - protocol_error
+- authentication_failed
 - unknown
 
 Timeout and connection failures are retryable by default. Cancellation, invalid configuration, unsupported capability and unknown failures are not automatically retryable. Adapter-specific exceptions can be wrapped in AdapterError to preserve a stable code and safe details. Unknown exception messages are not copied into the normalized message, avoiding accidental leakage of credentials or private endpoints.
@@ -69,3 +70,5 @@ The fake adapter tests cover runtime protocol conformance, all five lifecycle me
 GitHub Actions run #16 passed on Ubuntu and Windows: 49 tests on each runner, all three Alembic migrations, and Uvicorn liveness/database-readiness smoke tests returning HTTP 200.
 
 This verifies the contract, fake adapter and registry only. No production/provider adapter is registered or claimed as implemented in D13.
+
+See [the HTTP API adapter guide](http-api-adapter.md) for configuration, request/response mapping, provenance rules, redaction and mock-server verification.

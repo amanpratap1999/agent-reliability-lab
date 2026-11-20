@@ -64,3 +64,5 @@ The deterministic Service Desk simulator, its ten typed tools, permission model,
 ## Phase 2 — Agent adapter contract
 
 The provider-neutral asynchronous adapter lifecycle, provenance model, normalized errors, capability metadata and registry are defined in [the adapter contract](docs/agent-adapter-contract.md).
+
+The generic HTTP agent bridge is implemented in [the HTTP API adapter guide](docs/http-api-adapter.md); it is verified against a local mock server and does not require a provider SDK.

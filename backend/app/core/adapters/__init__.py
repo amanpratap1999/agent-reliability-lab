@@ -5,11 +5,13 @@ from app.core.adapters.base import (
     AgentAdapter,
     normalize_adapter_error,
 )
+from app.core.adapters.http_api import HttpApiAdapter
 from app.core.adapters.registry import AdapterRegistry
 
 __all__ = [
     "AgentAdapter",
     "AdapterRegistry",
+    "HttpApiAdapter",
     "AdapterError",
     "AdapterContractError",
     "AdapterRegistrationError",

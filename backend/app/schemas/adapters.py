@@ -1,8 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
 
 class EventProvenance(str, Enum):
@@ -21,6 +21,7 @@ class AdapterErrorCode(str, Enum):
     UNSUPPORTED_CAPABILITY = "unsupported_capability"
     PROTOCOL_ERROR = "protocol_error"
     UNKNOWN = "unknown"
+    AUTHENTICATION_FAILED = "authentication_failed"
 
 
 class ExecutionStatus(str, Enum):
@@ -118,7 +119,106 @@ class AdapterEvent(BaseModel):
 class AgentExecutionResult(BaseModel):
     status: ExecutionStatus
     output: str | dict[str, Any] | None = None
+    provenance: EventProvenance = EventProvenance.AGENT_REPORTED
     error: AdapterErrorInfo | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HttpApiAdapterSettings(BaseModel):
+    """Provider-neutral HTTP endpoint and auth-reference settings."""
+    model_config = ConfigDict(extra="forbid")
+    base_url: AnyHttpUrl
+    execute_path: str = "/v1/execute"
+    events_path: str | None = None
+    stop_path: str | None = None
+    auth_ref_key: str | None = "http_auth"
+    auth_header: str = "Authorization"
+    auth_scheme: Literal["bearer", "raw"] = "bearer"
+    headers: dict[str, str] = Field(default_factory=dict)
+    structured_tool_calls: bool = False
+    screenshots: bool = False
+
+    @field_validator("base_url")
+    @classmethod
+    def require_https_except_loopback(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+        if value.username or value.password or value.query or value.fragment:
+            raise ValueError("base_url cannot embed credentials, query parameters or fragments")
+        if value.scheme != "https" and value.host not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("HTTPS is required except for loopback mock/test endpoints")
+        return value
+
+    @field_validator("execute_path", "events_path", "stop_path")
+    @classmethod
+    def validate_relative_api_path(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not value.startswith("/") or "://" in value or "?" in value or "#" in value:
+            raise ValueError("HTTP adapter paths must be absolute paths on the configured base URL")
+        if any(segment == ".." for segment in value.split("/")):
+            raise ValueError("HTTP adapter paths cannot traverse parent directories")
+        return value
+
+    @field_validator("auth_header")
+    @classmethod
+    def validate_auth_header(cls, value: str) -> str:
+        import re
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", value):
+            raise ValueError("auth_header must be a valid HTTP header name")
+        if value.lower() in {"host", "content-length", "connection", "transfer-encoding", "cookie", "set-cookie", "proxy-authorization"}:
+            raise ValueError("auth_header cannot target a transport-controlled or cookie header")
+        return value
+
+    @field_validator("headers")
+    @classmethod
+    def reject_sensitive_custom_headers(cls, value: dict[str, str]) -> dict[str, str]:
+        forbidden = {"authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key", "host", "content-length", "connection", "transfer-encoding"}
+        for name, header_value in value.items():
+            if name.lower() in forbidden:
+                raise ValueError("Authentication headers must use secret_refs, not custom headers")
+            if "\r" in header_value or "\n" in header_value:
+                raise ValueError("HTTP header values cannot contain line breaks")
+        return value
+
+
+class HttpApiErrorPayload(BaseModel):
+    code: str | None = None
+    message: str = "Remote agent execution failed"
+    retryable: bool = False
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class HttpApiEventRecord(BaseModel):
+    event_id: str | None = None
+    event_type: str = Field(min_length=1, max_length=100)
+    occurred_at: datetime | None = None
+    actor: str | None = None
+    action: str | None = None
+    status: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class HttpApiAgentResponse(BaseModel):
+    status: ExecutionStatus
+    output: str | dict[str, Any] | None = None
+    error: HttpApiErrorPayload | None = None
+    events: list[HttpApiEventRecord] = Field(default_factory=list)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HttpApiEventsResponse(BaseModel):
+    events: list[HttpApiEventRecord] = Field(default_factory=list)
+
+
+class HttpApiExecutionLimits(BaseModel):
+    timeout_seconds: int = Field(ge=1, le=3600)
+    max_actions: int = Field(ge=1, le=10000)
+
+
+class HttpApiExecutionRequest(BaseModel):
+    task: AgentTask
+    context: AdapterRuntimeContext
+    limits: HttpApiExecutionLimits
