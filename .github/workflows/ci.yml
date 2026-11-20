@@ -38,3 +38,7 @@ jobs:
         env:
           DATABASE_URL: sqlite:///./ci-validation.db
         run: alembic upgrade head
+      - name: Smoke test running API
+        env:
+          DATABASE_URL: sqlite:///./ci-validation.db
+        run: python scripts/smoke_test.py
