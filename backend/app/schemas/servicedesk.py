@@ -8,7 +8,6 @@ IncidentState = Literal["New", "In Progress", "On Hold", "Resolved", "Closed"]
 
 class IncidentLookupInput(BaseModel):
     incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
-
     @field_validator("incident_number", mode="before")
     @classmethod
     def normalize_incident_number(cls, value: str) -> str:
@@ -35,12 +34,10 @@ class IncidentUpdateInput(BaseModel):
     description: str | None = Field(default=None, max_length=4000)
     state: IncidentState | None = None
     priority: int | None = Field(default=None, ge=1, le=5)
-
     @field_validator("incident_number", mode="before")
     @classmethod
     def normalize_incident_number(cls, value: str) -> str:
         return str(value).strip().upper()
-
     @model_validator(mode="after")
     def validate_changes(self):
         changes = self.model_dump(exclude={"incident_number"}, exclude_unset=True)
@@ -55,12 +52,10 @@ class IncidentAssignmentInput(BaseModel):
     incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
     assignment_group: str = Field(min_length=1, max_length=100)
     assigned_to: str | None = Field(default=None, max_length=80)
-
     @field_validator("incident_number", mode="before")
     @classmethod
     def normalize_incident_number(cls, value: str) -> str:
         return str(value).strip().upper()
-
     @field_validator("assignment_group")
     @classmethod
     def normalize_assignment_group(cls, value: str) -> str:
@@ -68,7 +63,6 @@ class IncidentAssignmentInput(BaseModel):
         if not value:
             raise ValueError("Assignment group cannot be blank")
         return value
-
     @field_validator("assigned_to")
     @classmethod
     def normalize_assignee(cls, value: str | None) -> str | None:
@@ -83,12 +77,10 @@ class IncidentAssignmentInput(BaseModel):
 class AddWorkNoteInput(BaseModel):
     incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
     content: str = Field(min_length=1, max_length=4000)
-
     @field_validator("incident_number", mode="before")
     @classmethod
     def normalize_incident_number(cls, value: str) -> str:
         return str(value).strip().upper()
-
     @field_validator("content")
     @classmethod
     def validate_content(cls, value: str) -> str:
@@ -101,12 +93,10 @@ class AddWorkNoteInput(BaseModel):
 class ResolveIncidentInput(BaseModel):
     incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
     resolution_notes: str = Field(min_length=1, max_length=4000)
-
     @field_validator("incident_number", mode="before")
     @classmethod
     def normalize_incident_number(cls, value: str) -> str:
         return str(value).strip().upper()
-
     @field_validator("resolution_notes")
     @classmethod
     def validate_resolution_notes(cls, value: str) -> str:
@@ -114,6 +104,17 @@ class ResolveIncidentInput(BaseModel):
         if not value:
             raise ValueError("Resolution notes cannot be blank")
         return value
+
+
+class IncidentHistoryInput(BaseModel):
+    incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
+    since: datetime | None = None
+    event_type: Literal["all", "changes", "attempts"] = "all"
+    limit: int = Field(default=50, ge=1, le=100)
+    @field_validator("incident_number", mode="before")
+    @classmethod
+    def normalize_incident_number(cls, value: str) -> str:
+        return str(value).strip().upper()
 
 
 class WorkNoteRead(BaseModel):
@@ -184,3 +185,24 @@ class IncidentMutationResult(BaseModel):
     message: str
     incident: IncidentDetail
     changed_fields: list[str]
+
+
+class IncidentHistoryEvent(BaseModel):
+    id: str
+    source: Literal["audit", "attempt"]
+    action: str
+    outcome: str
+    actor: str | None
+    field_name: str | None = None
+    previous_value: str | None = None
+    new_value: str | None = None
+    reason: str | None = None
+    details: dict | None = None
+    occurred_at: datetime
+
+
+class IncidentHistoryResult(BaseModel):
+    incident_number: str
+    events: list[IncidentHistoryEvent]
+    total: int
+    limit: int
