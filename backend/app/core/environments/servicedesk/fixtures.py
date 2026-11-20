@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.schemas.scenarios import FixtureCheck, FixtureIntegrityReport
 from app.models.servicedesk import (
     AuditHistory, Incident, Permission, Role, Team, ToolAttempt, User, WorkNote,
     role_permissions, user_roles,
@@ -78,3 +79,72 @@ def reset_servicedesk(db: Session) -> dict[str, int]:
 def fixture_counts(db: Session) -> dict[str, int]:
     models = {"teams": Team, "users": User, "roles": Role, "permissions": Permission, "incidents": Incident, "work_notes": WorkNote, "audit_history": AuditHistory, "tool_attempts": ToolAttempt}
     return {name: int(db.scalar(select(func.count()).select_from(model)) or 0) for name, model in models.items()}
+
+
+def validate_servicedesk_fixtures(db: Session, require_clean: bool = True) -> FixtureIntegrityReport:
+    """Check that the simulator contains the canonical v1 fixture and valid references."""
+    counts = fixture_counts(db)
+    checks: list[FixtureCheck] = []
+
+    expected_counts = {
+        "teams": 2, "users": 4, "roles": 3, "permissions": 8,
+        "incidents": 3, "work_notes": 1, "audit_history": 3,
+    }
+    if require_clean:
+        expected_counts["tool_attempts"] = 0
+    for key, expected in expected_counts.items():
+        actual = counts[key]
+        checks.append(FixtureCheck(key=f"count.{key}", expected=expected, actual=actual, passed=actual == expected))
+
+    expected_incidents = {"INC1001", "INC1002", "INC1003"}
+    incident_rows = db.scalars(select(Incident).order_by(Incident.number)).all()
+    actual_incidents = {item.number for item in incident_rows}
+    checks.append(FixtureCheck(
+        key="incident_numbers",
+        expected=", ".join(sorted(expected_incidents)),
+        actual=", ".join(sorted(actual_incidents)),
+        passed=actual_incidents == expected_incidents,
+    ))
+    unique_numbers = len(incident_rows) == len(actual_incidents)
+    checks.append(FixtureCheck(key="incident_numbers_unique", expected=True, actual=unique_numbers, passed=unique_numbers))
+
+    references_valid = all(item.assignment_group is not None and item.opened_by is not None for item in incident_rows)
+    checks.append(FixtureCheck(key="incident_references", expected=True, actual=references_valid, passed=references_valid))
+
+    team_names = {item.name for item in db.scalars(select(Team)).all()}
+    checks.append(FixtureCheck(
+        key="required_teams", expected="Network Team, Service Desk",
+        actual=", ".join(sorted(team_names)),
+        passed=team_names == {"Network Team", "Service Desk"},
+    ))
+    role_names = {item.name for item in db.scalars(select(Role)).all()}
+    checks.append(FixtureCheck(
+        key="required_roles", expected="admin, itil_user, network_agent",
+        actual=", ".join(sorted(role_names)),
+        passed=role_names == {"admin", "itil_user", "network_agent"},
+    ))
+    permission_keys = {item.key for item in db.scalars(select(Permission)).all()}
+    checks.append(FixtureCheck(
+        key="required_permissions", expected=", ".join(sorted(PERMISSION_KEYS)),
+        actual=", ".join(sorted(permission_keys)),
+        passed=permission_keys == set(PERMISSION_KEYS),
+    ))
+
+    users = {item.username: item for item in db.scalars(select(User)).all()}
+    expected_user_roles = {
+        "agent.user": {"itil_user"},
+        "admin.user": {"admin"},
+        "network.agent": {"network_agent"},
+        "jordan.lee": set(),
+    }
+    actual_user_roles = {
+        username: {role.name for role in users[username].roles} if username in users else set()
+        for username in expected_user_roles
+    }
+    role_assignments_valid = actual_user_roles == expected_user_roles
+    checks.append(FixtureCheck(
+        key="user_role_assignments", expected=str(expected_user_roles),
+        actual=str(actual_user_roles), passed=role_assignments_valid,
+    ))
+
+    return FixtureIntegrityReport(passed=all(item.passed for item in checks), counts=counts, checks=checks)
