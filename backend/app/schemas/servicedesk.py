@@ -1,0 +1,91 @@
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+IncidentState = Literal["New", "In Progress", "On Hold", "Resolved", "Closed"]
+
+
+class IncidentLookupInput(BaseModel):
+    incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
+
+    @field_validator("incident_number")
+    @classmethod
+    def normalize_incident_number(cls, value: str) -> str:
+        return value.strip().upper()
+
+
+class IncidentSearchInput(BaseModel):
+    query: str | None = Field(default=None, max_length=200)
+    state: IncidentState | None = None
+    priority: int | None = Field(default=None, ge=1, le=5)
+    assignment_group: str | None = Field(default=None, max_length=100)
+    assigned_to: str | None = Field(default=None, max_length=80)
+    limit: int = Field(default=25, ge=1, le=100)
+
+
+class ListTeamsInput(BaseModel):
+    include_inactive: bool = False
+
+
+class WorkNoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    author: str
+    content: str
+    created_at: datetime
+
+
+class IncidentSummary(BaseModel):
+    id: str
+    number: str
+    short_description: str
+    state: IncidentState
+    priority: int
+    assignment_group: str | None
+    assigned_to: str | None
+
+
+class IncidentDetail(IncidentSummary):
+    description: str
+    opened_by: str
+    work_notes: list[WorkNoteRead]
+    created_at: datetime
+    updated_at: datetime
+
+
+class IncidentLookupResult(BaseModel):
+    found: bool
+    incident: IncidentDetail | None
+
+
+class IncidentSearchResult(BaseModel):
+    items: list[IncidentSummary]
+    total: int
+    limit: int
+
+
+class TeamRead(BaseModel):
+    id: str
+    name: str
+    description: str | None
+    is_active: bool
+
+
+class TeamListResult(BaseModel):
+    teams: list[TeamRead]
+    total: int
+
+
+class CurrentUserResult(BaseModel):
+    id: str
+    username: str
+    display_name: str
+    is_active: bool
+    roles: list[str]
+
+
+class UserPermissionsResult(BaseModel):
+    username: str
+    roles: list[str]
+    permissions: list[str]
