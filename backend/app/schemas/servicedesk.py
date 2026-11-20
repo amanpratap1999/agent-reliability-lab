@@ -9,10 +9,10 @@ IncidentState = Literal["New", "In Progress", "On Hold", "Resolved", "Closed"]
 class IncidentLookupInput(BaseModel):
     incident_number: str = Field(pattern=r"^INC\d{4,}$", min_length=7, max_length=20)
 
-    @field_validator("incident_number")
+    @field_validator("incident_number", mode="before")
     @classmethod
     def normalize_incident_number(cls, value: str) -> str:
-        return value.strip().upper()
+        return str(value).strip().upper()
 
 
 class IncidentSearchInput(BaseModel):
