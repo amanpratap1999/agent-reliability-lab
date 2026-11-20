@@ -56,3 +56,7 @@ Targets Python 3.11 and native execution without Docker. Exact Windows and Unix 
 
 ## License
 Apache-2.0. See [LICENSE](LICENSE).
+
+## Phase 1 — Service Desk simulator
+
+The deterministic Service Desk simulator, its ten typed tools, permission model, audit/attempt history, independent verifier and ten-scenario catalog are documented in [the simulator contract](docs/servicedesk-simulator.md). Phase 1 verification evidence is recorded in [the Phase 1 verification report](docs/phase-1-verification.md).
